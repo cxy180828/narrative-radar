@@ -17,13 +17,20 @@ class MomentumTracker:
         self._push_cooldown = self._config.get("push_cooldown", 300)
         self._max_snapshots = self._config.get("max_snapshots", 20)
         self._stale_timeout = self._config.get("stale_timeout", 600)
+        self._min_snapshot_interval = self._config.get("min_snapshot_interval", 20)
         self._tracker: Dict[str, List[dict]] = {}
         self._pushed: Dict[str, dict] = {}
+        self._log_interval = 0  # for periodic debug logging
 
     def update(self, tokens: List[dict]) -> List[dict]:
         now = time.time()
         signals = []
         current_addrs = set()
+        new_snapshots = 0
+        skipped_same = 0
+        skipped_filter = 0
+        checked_momentum = 0
+
         for token in tokens:
             addr = token["address"]
             mc = token.get("mc", 0) or 0
@@ -32,37 +39,62 @@ class MomentumTracker:
             buys = token.get("buys_1h", 0) or token.get("buys", 0) or 0
             liq = token.get("liq", 0) or 0
             current_addrs.add(addr)
+
             if mc < 1000 or liq < 500 or mc > 10_000_000:
+                skipped_filter += 1
                 continue
+
             self._tracker.setdefault(addr, [])
             snapshots = self._tracker[addr]
-            if snapshots and snapshots[-1]["mc"] == mc and snapshots[-1]["vol"] == vol:
-                continue
+
+            # Skip if data unchanged AND too recent (allow re-record if enough time passed)
+            if snapshots:
+                last = snapshots[-1]
+                time_since_last = now - last["ts"]
+                if last["mc"] == mc and last["vol"] == vol and time_since_last < self._min_snapshot_interval:
+                    skipped_same += 1
+                    continue
+                # Even if mc/vol same, record if enough time passed (market might update slowly)
+                if last["mc"] == mc and time_since_last < self._min_snapshot_interval * 3:
+                    skipped_same += 1
+                    continue
+
             snapshots.append({"ts": now, "mc": mc, "vol": vol, "price": price, "buys": buys})
+            new_snapshots += 1
+
             if len(snapshots) > self._max_snapshots:
                 snapshots[:] = snapshots[-self._max_snapshots:]
+
             if len(snapshots) < self._consecutive_up:
                 continue
+
+            # Check consecutive up in last N snapshots
             recent = snapshots[-self._consecutive_up:]
             is_consecutive_up = True
             for i in range(1, len(recent)):
                 if recent[i-1]["mc"] <= 0 or recent[i]["mc"] <= recent[i-1]["mc"]:
                     is_consecutive_up = False
                     break
+
             if not is_consecutive_up:
                 continue
+
+            checked_momentum += 1
             vol_increasing = all(recent[i]["buys"] >= recent[i-1]["buys"] * 0.8 for i in range(1, len(recent)))
             first_mc = recent[0]["mc"]
             last_mc = recent[-1]["mc"]
             pct_gain = ((last_mc - first_mc) / first_mc * 100) if first_mc > 0 else 0
+
             if pct_gain < self._min_pct_gain:
                 continue
+
             push_info = self._pushed.get(addr, {"count": 0, "last_ts": 0, "last_mc": 0})
             if push_info["count"] > 0:
                 if now - push_info["last_ts"] < self._push_cooldown:
                     continue
                 if last_mc <= push_info["last_mc"]:
                     continue
+
             streak = self._count_up_streak(snapshots)
             push_info["count"] += 1
             push_info["last_ts"] = now
@@ -72,8 +104,19 @@ class MomentumTracker:
                 "token": token, "pct_gain": pct_gain, "rounds": streak,
                 "vol_up": vol_increasing, "signal_count": push_info["count"],
             })
+
         self._cleanup(current_addrs, now)
         signals.sort(key=lambda x: x["pct_gain"], reverse=True)
+
+        # Debug logging every 10 rounds
+        self._log_interval += 1
+        if self._log_interval % 10 == 0:
+            self._logger.info(
+                f"[Momentum] tracking={len(self._tracker)} new_snaps={new_snapshots} "
+                f"skipped_same={skipped_same} skipped_filter={skipped_filter} "
+                f"consecutive_up={checked_momentum} signals={len(signals)}"
+            )
+
         return signals
 
     def get_momentum_decay(self, address: str) -> float:
