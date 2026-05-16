@@ -107,8 +107,8 @@ class GmgnFetcher:
             try:
                 data = resp.json().get("data", {}).get("token", {})
                 return {"price": data.get("price", 0) or 0, "mc": data.get("market_cap", 0) or 0}
-            except Exception:
-                pass
+            except Exception as e:
+                self._logger.debug(f"GMGN parse error: {e}")
         return {}
 
     def _fetch_rank(self, url: str) -> List[dict]:
@@ -117,6 +117,6 @@ class GmgnFetcher:
         if resp and resp.status_code == 200:
             try:
                 return resp.json().get("data", {}).get("rank", [])
-            except Exception:
-                pass
+            except Exception as e:
+                self._logger.debug(f"GMGN parse error: {e}")
         return []

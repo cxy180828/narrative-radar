@@ -194,12 +194,11 @@ class FeishuNotifier:
 
     def _post(self, payload: dict) -> bool:
         """Post payload to webhook URL."""
-        import requests as _requests
-
         try:
-            resp = _requests.post(
+            resp = self._http.post(
                 self._webhook_url,
                 json=payload,
+                delay=False,
                 timeout=10,
             )
 
@@ -213,7 +212,8 @@ class FeishuNotifier:
                     self._logger.warning(f"Feishu send error: {msg}")
                     return False
             else:
-                self._logger.warning(f"Feishu HTTP error: {resp.status_code if resp else 'no response'}")
+                status = resp.status_code if resp else "no response"
+                self._logger.warning(f"Feishu HTTP error: {status}")
                 return False
 
         except Exception as e:

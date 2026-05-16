@@ -117,8 +117,8 @@ class AISummary:
             rows = c.fetchall()
             if rows:
                 return "\n".join(f"- {r[0]} ({r[1]}) [{r[2]}] -> {r[3]:+.1f}%" for r in rows)
-        except Exception:
-            pass
+        except Exception as e:
+            self._logger.debug(f"DB query error: {e}")
         return "No data"
 
     def _get_worst_signals(self) -> str:
@@ -136,8 +136,8 @@ class AISummary:
             rows = c.fetchall()
             if rows:
                 return "\n".join(f"- {r[0]} ({r[1]}) [{r[2]}] -> {r[3]:+.1f}%" for r in rows)
-        except Exception:
-            pass
+        except Exception as e:
+            self._logger.debug(f"DB query error: {e}")
         return "No data"
 
 

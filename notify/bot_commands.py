@@ -25,6 +25,9 @@ class BotCommandHandler:
         self._thread = None
         self._report_callback: Optional[Callable] = None
         self._ai_client = None  # Set via set_ai_client()
+        # Admin whitelist - only these user IDs can execute commands
+        admin_ids = os.environ.get("TG_ADMIN_IDS", "")
+        self._admin_ids = set(admin_ids.split(",")) if admin_ids else set()
 
     @property
     def enabled(self) -> bool:
@@ -85,13 +88,18 @@ class BotCommandHandler:
             if chat_id != str(self._chat_id):
                 continue
             if text.startswith("/"):
-                self._handle_command(text, chat_id)
+                user_id = str(message.get("from", {}).get("id", ""))
+                self._handle_command(text, chat_id, user_id)
             callback = update.get("callback_query", {})
             if callback:
                 cb_data = callback.get("data", "")
                 self._handle_callback(cb_data, callback.get("id", ""))
 
-    def _handle_command(self, text: str, chat_id: str):
+    def _handle_command(self, text: str, chat_id: str, user_id: str = ""):
+        # Admin check
+        if self._admin_ids and user_id not in self._admin_ids:
+            self._logger.warning(f"Unauthorized command from user {user_id}: {text}")
+            return
         parts = text.split()
         cmd = parts[0].lower().split("@")[0]
         if cmd == "/status":

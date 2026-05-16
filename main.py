@@ -93,6 +93,7 @@ class RadarApp:
         self.scan_count = 0
         self.total_pushed = 0
         self.last_backup_time = time.time()
+        self._error_counts = {}  # {source: count} for monitoring
 
     def run(self):
         self.logger.info("=" * 60)
@@ -158,24 +159,24 @@ class RadarApp:
                 if t["address"] not in seen:
                     seen.add(t["address"])
                     all_tokens.append(t)
-        except Exception:
-            pass
+        except Exception as e:
+            self.logger.warning(f"FLAP fetch error: {e}")
         if "sol" in self.config.get("scan", {}).get("chains", []):
             try:
                 for t in self.pumpfun.fetch_new_tokens(limit=30):
                     if t["address"] not in seen:
                         seen.add(t["address"])
                         all_tokens.append(t)
-            except Exception:
-                pass
+            except Exception as e:
+                self.logger.warning(f"pump.fun fetch error: {e}")
         if "bsc" in self.config.get("scan", {}).get("chains", []):
             try:
                 for t in self.fourmeme.fetch_new_tokens(limit=20):
                     if t["address"] not in seen:
                         seen.add(t["address"])
                         all_tokens.append(t)
-            except Exception:
-                pass
+            except Exception as e:
+                self.logger.warning(f"Four.Meme fetch error: {e}")
         return all_tokens
 
     def _pre_filter(self, tokens: list) -> list:
@@ -277,8 +278,8 @@ class RadarApp:
         if self.perf_tracker.should_check():
             try:
                 self.perf_tracker.check_performance()
-            except Exception:
-                pass
+            except Exception as e:
+                self.logger.warning(f"Performance check error: {e}")
         if self.hotword_discovery.should_run():
             try:
                 recent = self._fetch_all_tokens()[:100]
@@ -286,8 +287,8 @@ class RadarApp:
                 discovered = self.hotword_discovery.discover(recent, known)
                 if discovered:
                     self._notify(f"New trends: {', '.join(d['keyword'] for d in discovered)}")
-            except Exception:
-                pass
+            except Exception as e:
+                self.logger.warning(f"Hotword discovery error: {e}")
         if self.ai_summary.should_run():
             self._trigger_report()
         if self.fp_learning.should_run():
@@ -295,20 +296,20 @@ class RadarApp:
                 analysis = self.fp_learning.analyze()
                 if analysis:
                     self._notify(f"FP Analysis: {analysis.get('summary', 'done')}")
-            except Exception:
-                pass
+            except Exception as e:
+                self.logger.warning(f"FP learning error: {e}")
         if self.calibrator.should_calibrate():
             try:
                 self.calibrator.calibrate()
-            except Exception:
-                pass
+            except Exception as e:
+                self.logger.warning(f"Score calibration error: {e}")
         backup_interval = self.config.get("database", {}).get("backup_interval", 86400)
         if now - self.last_backup_time >= backup_interval:
             try:
                 self.db.backup()
                 self.last_backup_time = now
-            except Exception:
-                pass
+            except Exception as e:
+                self.logger.warning(f"DB backup error: {e}")
 
     def _trigger_report(self):
         try:
@@ -326,6 +327,14 @@ class RadarApp:
         self._notify("Narrative Radar v2 shutting down.")
         self.db.close()
         self.logger.info("Shutdown complete.")
+
+    def _record_error(self, source: str, error: Exception):
+        """Record error for monitoring. Alert if threshold exceeded."""
+        self._error_counts[source] = self._error_counts.get(source, 0) + 1
+        self.logger.warning(f"[{source}] error #{self._error_counts[source]}: {error}")
+        # Alert if any source has 10+ consecutive errors
+        if self._error_counts[source] >= 10 and self._error_counts[source] % 10 == 0:
+            self._notify(f"WARNING: {source} has {self._error_counts[source]} errors")
 
     def _notify(self, text: str) -> bool:
         """Send message to all configured notification channels (TG + Feishu)."""

@@ -43,8 +43,8 @@ class SafetyChecker:
                 if freeze_auth:
                     reason += "freeze authority active; "
                 result = {"safe": is_safe, "reason": reason.strip("; ") if reason else "passed", "details": {"mint_authority": mint_auth is not None, "freeze_authority": freeze_auth is not None, "score": data.get("score", 999)}}
-            except Exception:
-                pass
+            except Exception as e:
+                self._logger.debug(f"Safety check parse error: {e}")
         return result
 
     def _check_evm(self, chain: str, address: str) -> dict:
@@ -73,8 +73,8 @@ class SafetyChecker:
                 if hidden_owner: issues.append("hidden_owner")
                 if is_proxy: issues.append("proxy_contract")
                 result = {"safe": len(issues) == 0, "reason": ", ".join(issues) if issues else "passed", "details": {"honeypot": honeypot, "mintable": mintable, "sell_tax": sell_tax, "buy_tax": buy_tax}}
-            except Exception:
-                pass
+            except Exception as e:
+                self._logger.debug(f"Safety check parse error: {e}")
         return result
 
     @property

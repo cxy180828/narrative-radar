@@ -44,8 +44,8 @@ class TelegramNotifier:
             try:
                 if "can't parse" in resp.json().get("description", "").lower():
                     return self._send_plain(text)
-            except Exception:
-                pass
+            except Exception as e:
+                self._logger.debug(f"TG response parse error: {e}")
         return False
 
     def _send_plain(self, text: str) -> bool:

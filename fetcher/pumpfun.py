@@ -44,8 +44,8 @@ class PumpFunFetcher:
                     "telegram": data.get("telegram", "") or "",
                     "website": data.get("website", "") or "",
                 }
-            except Exception:
-                pass
+            except Exception as e:
+                self._logger.debug(f"pump.fun description fetch error: {e}")
         return None
 
     def _normalize_coins(self, coins: list) -> List[dict]:
