@@ -36,7 +36,12 @@ class HealthChecker:
         self._checks_passed["disk"] = free_gb >= 0.5
 
         # 2. GMGN reachability
-        gmgn_ok = self._check_url("https://gmgn.ai/defi/quotation/v1/rank/eth/swaps/1h?limit=1", "GMGN")
+        gmgn_headers = {"Referer": "https://gmgn.ai/", "Origin": "https://gmgn.ai"}
+        gmgn_ok = self._check_url(
+            "https://gmgn.ai/defi/quotation/v1/rank/eth/swaps/1h?limit=1",
+            "GMGN",
+            headers=gmgn_headers,
+        )
         self._checks_passed["gmgn"] = gmgn_ok
         if not gmgn_ok:
             self._logger.warning("GMGN API unreachable - will retry during operation")
@@ -75,9 +80,12 @@ class HealthChecker:
         self._logger.info(f"Startup checks: {status} - {self._checks_passed}")
         return all_ok
 
-    def _check_url(self, url: str, name: str) -> bool:
+    def _check_url(self, url: str, name: str, headers: dict = None) -> bool:
         """Check if a URL is reachable."""
-        resp = self._http.get(url, delay=False, timeout=10)
+        kwargs = {"delay": False, "timeout": 10}
+        if headers:
+            kwargs["headers"] = headers
+        resp = self._http.get(url, **kwargs)
         if resp is not None and resp.status_code == 200:
             self._logger.info(f"{name} API reachable")
             return True
