@@ -60,26 +60,145 @@ push:
 # --- AI ---
 ai:
   enabled: true
-  # Provider priority: try in order, fallback on failure/rate-limit
+
+  # Provider priority: tried in order. First available provider wins.
+  # Supports ANY OpenAI-compatible API endpoint.
+  # 
+  # For relay/proxy stations (中转站):
+  #   Just set base_url to your relay endpoint and use the relay's API key.
+  #   Examples: one-api, new-api, chat-next-web relay, etc.
+  #
+  # For each provider you can set:
+  #   name:              Display name (for logs/status)
+  #   base_url:          API endpoint (must be OpenAI-compatible /chat/completions)
+  #   model:             Model name to request
+  #   api_key_env:       Environment variable name containing the API key
+  #   api_key:           Or directly put the key here (less secure, env var preferred)
+  #   max_rpm:           Rate limit - max requests per minute
+  #   max_rpd:           Rate limit - max requests per day
+  #   priority:          Lower = tried first (default: order in list)
+  #   timeout:           Request timeout in seconds (default: 30)
+  #   tags:              List of tags for task routing ["fast", "cheap", "smart"]
+  #   extra_headers:     Additional HTTP headers (e.g., OpenRouter needs HTTP-Referer)
+  #   supports_json_mode: Whether the API supports response_format json_object (default: true)
+  #
   providers:
+    # === 中转站示例 (Relay Station) ===
+    # 如果你有中转站，放在第一位作为主力
+    # - name: relay-main
+    #   base_url: "https://your-relay.example.com/v1"
+    #   model: "gpt-4o-mini"
+    #   api_key_env: "RELAY_API_KEY"
+    #   max_rpm: 60
+    #   max_rpd: 10000
+    #   priority: 0
+    #   timeout: 30
+    #   tags: ["smart", "fast"]
+
+    # === 中转站备用 (Relay Backup) ===
+    # - name: relay-backup
+    #   base_url: "https://backup-relay.example.com/v1"
+    #   model: "claude-3-haiku"
+    #   api_key_env: "RELAY_BACKUP_KEY"
+    #   max_rpm: 30
+    #   max_rpd: 5000
+    #   priority: 1
+    #   tags: ["smart"]
+
+    # === 免费/低价直连 (Official Free/Cheap) ===
     - name: groq
-      api_key_env: "GROQ_API_KEY"
-      model: "llama-3.3-70b-versatile"
       base_url: "https://api.groq.com/openai/v1"
-      max_rpm: 28               # free tier ~30 RPM, leave margin
+      model: "llama-3.3-70b-versatile"
+      api_key_env: "GROQ_API_KEY"
+      max_rpm: 28
       max_rpd: 14000
+      priority: 2
+      tags: ["fast", "free"]
+
     - name: deepseek
-      api_key_env: "DEEPSEEK_API_KEY"
-      model: "deepseek-chat"
       base_url: "https://api.deepseek.com/v1"
+      model: "deepseek-chat"
+      api_key_env: "DEEPSEEK_API_KEY"
       max_rpm: 60
       max_rpd: 100000
+      priority: 3
+      timeout: 30
+      tags: ["cheap", "smart"]
+
     - name: gemini
-      api_key_env: "GEMINI_API_KEY"
-      model: "gemini-2.0-flash"
       base_url: "https://generativelanguage.googleapis.com/v1beta/openai"
+      model: "gemini-2.0-flash"
+      api_key_env: "GEMINI_API_KEY"
       max_rpm: 14
       max_rpd: 900
+      priority: 4
+      tags: ["free"]
+
+    # === OpenRouter (聚合器，支持100+模型) ===
+    # - name: openrouter
+    #   base_url: "https://openrouter.ai/api/v1"
+    #   model: "meta-llama/llama-3.3-70b-instruct"
+    #   api_key_env: "OPENROUTER_API_KEY"
+    #   max_rpm: 60
+    #   max_rpd: 50000
+    #   priority: 5
+    #   tags: ["cheap"]
+    #   extra_headers:
+    #     HTTP-Referer: "https://github.com/cxy180828/narrative-radar"
+    #     X-Title: "Narrative Radar"
+
+    # === SiliconFlow (国内快速) ===
+    # - name: siliconflow
+    #   base_url: "https://api.siliconflow.cn/v1"
+    #   model: "deepseek-ai/DeepSeek-V3"
+    #   api_key_env: "SILICONFLOW_API_KEY"
+    #   max_rpm: 60
+    #   max_rpd: 50000
+    #   priority: 6
+    #   tags: ["fast", "cheap"]
+
+    # === OpenAI 官方 ===
+    # - name: openai
+    #   base_url: "https://api.openai.com/v1"
+    #   model: "gpt-4o-mini"
+    #   api_key_env: "OPENAI_API_KEY"
+    #   max_rpm: 60
+    #   max_rpd: 10000
+    #   priority: 7
+    #   tags: ["smart"]
+
+    # === Together AI ===
+    # - name: together
+    #   base_url: "https://api.together.xyz/v1"
+    #   model: "meta-llama/Llama-3.3-70B-Instruct-Turbo"
+    #   api_key_env: "TOGETHER_API_KEY"
+    #   max_rpm: 60
+    #   max_rpd: 50000
+    #   priority: 8
+    #   tags: ["fast", "cheap"]
+
+    # === Fireworks AI ===
+    # - name: fireworks
+    #   base_url: "https://api.fireworks.ai/inference/v1"
+    #   model: "accounts/fireworks/models/llama-v3p3-70b-instruct"
+    #   api_key_env: "FIREWORKS_API_KEY"
+    #   max_rpm: 60
+    #   max_rpd: 50000
+    #   priority: 9
+    #   tags: ["fast"]
+
+    # === 本地 Ollama (完全免费，需要自己部署) ===
+    # - name: ollama-local
+    #   base_url: "http://localhost:11434/v1"
+    #   model: "qwen2.5:14b"
+    #   api_key: "ollama"
+    #   max_rpm: 999
+    #   max_rpd: 999999
+    #   priority: 99
+    #   timeout: 60
+    #   tags: ["free", "local"]
+    #   supports_json_mode: false
+
   # When to use AI
   narrative_analysis: true      # AI for tokens that keywords can't classify
   description_grading: true     # AI to grade token description quality
