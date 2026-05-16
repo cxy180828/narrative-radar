@@ -214,6 +214,11 @@ telegram:
   bot_commands: true            # enable /status /pause /filter etc.
   polling_interval: 2           # seconds between checking for commands
 
+# --- Feishu (飞书) ---
+feishu:
+  webhook_url_env: "FEISHU_WEBHOOK_URL"     # 自定义机器人 webhook URL
+  webhook_secret_env: "FEISHU_WEBHOOK_SECRET" # 签名校验密钥（可选）
+
 # --- HTTP ---
 http:
   timeout: 15

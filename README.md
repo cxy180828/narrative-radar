@@ -12,6 +12,7 @@
 | **安全检测** | GoPlus (EVM) + RugCheck (SOL)，蜜罐/税率/权限/代理合约全检 |
 | **评分引擎** | 10+ 维度加权评分 (0-100)，分级推送 |
 | **TG 交互** | Bot 命令：暂停/过滤/拉黑/加词/标记误报/AI状态/手动报告 |
+| **推送渠道** | Telegram + 飞书，双渠道可同时启用 |
 | **自学习** | 推送后追踪胜率、AI 热词发现、误报分析、评分自动校准 |
 
 ## 快速开始
@@ -38,9 +39,12 @@ cp .env.example .env
 编辑 `.env` 文件：
 
 ```env
-# 必填 — Telegram 推送
+# 必填 — 推送渠道（Telegram 和飞书至少配一个）
 TELEGRAM_BOT_TOKEN=你的Bot Token
 TG_CHAT_ID=你的聊天ID
+
+# 飞书推送（可选，可与 Telegram 同时使用）
+FEISHU_WEBHOOK_URL=https://open.feishu.cn/open-apis/bot/v2/hook/xxx
 
 # 选填 — AI 功能（至少填一个，推荐 Groq 免费）
 GROQ_API_KEY=你的Groq密钥
@@ -198,6 +202,39 @@ ai:
 
 ---
 
+## 飞书推送
+
+支持飞书自定义机器人 webhook 推送，与 Telegram 可同时使用。
+
+### 配置步骤
+
+1. 在飞书群中点击 **设置 → 群机器人 → 添加机器人 → 自定义机器人**
+2. 复制生成的 **Webhook URL**
+3. （可选）开启签名校验并记录密钥
+
+在 `.env` 中配置：
+
+```env
+FEISHU_WEBHOOK_URL=https://open.feishu.cn/open-apis/bot/v2/hook/your-hook-id
+FEISHU_WEBHOOK_SECRET=your_secret  # 可选，开启签名校验时填写
+```
+
+### 推送格式
+
+| 消息类型 | 场景 |
+|---------|------|
+| **卡片消息** (Interactive Card) | 信号推送 — 包含评分、链、叙事、快速链接按钮 |
+| **纯文本** | 启动/关闭通知、每日报告、热词发现 |
+
+### 双渠道行为
+
+- Telegram 和飞书**独立工作**，任意一个配置即可
+- 两个都配 → 信号同时推送到两个渠道
+- Telegram Bot 命令（/pause 等）只影响 Telegram 推送，飞书不受影响
+- 只配飞书不配 Telegram 也能正常工作（但没有交互命令功能）
+
+---
+
 ## 信号评分维度
 
 | 维度 | 最高分 | 说明 |
@@ -255,6 +292,7 @@ narrative-radar/
 │
 ├── notify/              # 推送交互
 │   ├── telegram.py      #   TG 消息发送 (Markdown+fallback)
+│   ├── feishu.py        #   飞书 webhook (卡片+富文本+签名)
 │   ├── formatter.py     #   消息格式化 (含快速链接)
 │   └── bot_commands.py  #   Bot 命令处理 (12个命令)
 │

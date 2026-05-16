@@ -30,6 +30,7 @@ from engine.scorer import SignalScorer
 from engine.safety import SafetyChecker
 from engine.backtest import PerformanceTracker
 from notify.telegram import TelegramNotifier
+from notify.feishu import FeishuNotifier
 from notify.formatter import format_momentum_alert, format_daily_report, format_startup_message, build_alert_buttons
 from notify.bot_commands import BotCommandHandler
 
@@ -86,6 +87,7 @@ class RadarApp:
         self.safety = SafetyChecker(self.http, self.config)
         self.perf_tracker = PerformanceTracker(self.gmgn, self.dexscreener, self.db, self.config)
         self.telegram = TelegramNotifier(self.http, self.config)
+        self.feishu = FeishuNotifier(self.http, self.config)
         self.bot_commands = BotCommandHandler(self.http, self.db, self.config)
         self.desc_cache = TTLCache(default_ttl=1800, max_size=3000)
         self.scan_count = 0
@@ -101,7 +103,7 @@ class RadarApp:
             self.bot_commands.set_report_callback(self._trigger_report)
             self.bot_commands.set_ai_client(self.ai_client)
             self.bot_commands.start()
-        self.telegram.send(format_startup_message(self.config))
+        self._notify(format_startup_message(self.config))
         self.logger.info(f"Scan interval: {self.config.get('scan', {}).get('interval', 30)}s")
         self.logger.info(f"Chains: {self.config.get('scan', {}).get('chains', [])}")
         self.logger.info(f"AI: {'enabled' if self.ai_client.enabled else 'disabled'}")
@@ -212,7 +214,21 @@ class RadarApp:
                 ai_insight = self.copywriter.enhance(name=token.get("name", ""), symbol=token.get("symbol", ""), chain=chain, mc=token.get("mc", 0), liq=token.get("liq", 0), narrative=narrative_tag, description=description, rounds=signal["rounds"], pct=signal["pct_gain"], score=score)
             msg = format_momentum_alert(token=token, pct_gain=signal["pct_gain"], rounds=signal["rounds"], vol_up=signal["vol_up"], score=score, narrative_tag=narrative_tag, desc_info=desc_info, signal_count=signal["signal_count"], ai_insight=ai_insight, push_level=push_level)
             buttons = build_alert_buttons(addr, chain)
-            if self.telegram.send_with_keyboard(msg, buttons):
+            tg_sent = self.telegram.send_with_keyboard(msg, buttons)
+            # Also send to Feishu (card format)
+            if self.feishu.enabled:
+                fs_buttons = [{"text": "Chart", "url": f"https://dexscreener.com/{chain}/{addr}"}]
+                self.feishu.send_card(
+                    title=f"Radar Signal: {token.get('name', '?')} ({token.get('symbol', '?')})",
+                    text=f"**Score:** {score}/100 | **Chain:** {chain.upper()}\n"
+                         f"**Streak:** {signal['rounds']} rounds +{signal['pct_gain']:.1f}%\n"
+                         f"**MC:** ${token.get('mc', 0):,.0f} | **Liq:** ${token.get('liq', 0):,.0f}\n"
+                         f"**Narrative:** {narrative_tag}\n"
+                         f"`{addr}`",
+                    buttons=fs_buttons,
+                    color="green" if score >= 75 else "blue",
+                )
+            if tg_sent or self.feishu.enabled:
                 pushed += 1
                 self.db.record_push(addr, chain, token.get("name", ""), token.get("symbol", ""), category, score, token.get("mc", 0), token.get("price", 0), narrative_tag, signal["signal_count"])
                 self.db.record_token(addr, chain, token.get("name", ""), token.get("symbol", ""), normalize_theme(token.get("name", ""), token.get("symbol", "")), category, token.get("mc", 0), token.get("liq", 0), pushed=True)
@@ -269,7 +285,7 @@ class RadarApp:
                 known = [hw["keyword"] for hw in self.db.get_active_hotwords()]
                 discovered = self.hotword_discovery.discover(recent, known)
                 if discovered:
-                    self.telegram.send(f"New trends: {', '.join(d['keyword'] for d in discovered)}")
+                    self._notify(f"New trends: {', '.join(d['keyword'] for d in discovered)}")
             except Exception:
                 pass
         if self.ai_summary.should_run():
@@ -278,7 +294,7 @@ class RadarApp:
             try:
                 analysis = self.fp_learning.analyze()
                 if analysis:
-                    self.telegram.send(f"FP Analysis: {analysis.get('summary', 'done')}")
+                    self._notify(f"FP Analysis: {analysis.get('summary', 'done')}")
             except Exception:
                 pass
         if self.calibrator.should_calibrate():
@@ -299,7 +315,7 @@ class RadarApp:
             stats = self.db.get_daily_stats()
             win_rate = self.db.get_win_rate(60, 1)
             ai_text = self.ai_summary.generate_daily_summary() if self.ai_summary.enabled else None
-            self.telegram.send(format_daily_report(stats, win_rate, ai_text))
+            self._notify(format_daily_report(stats, win_rate, ai_text))
         except Exception as e:
             self.logger.error(f"Report error: {e}")
 
@@ -307,9 +323,18 @@ class RadarApp:
         self.logger.info("Shutting down...")
         if self.bot_commands.enabled:
             self.bot_commands.stop()
-        self.telegram.send("Narrative Radar v2 shutting down.")
+        self._notify("Narrative Radar v2 shutting down.")
         self.db.close()
         self.logger.info("Shutdown complete.")
+
+    def _notify(self, text: str) -> bool:
+        """Send message to all configured notification channels (TG + Feishu)."""
+        sent = False
+        if self.telegram.enabled:
+            sent = self.telegram.send(text) or sent
+        if self.feishu.enabled:
+            sent = self.feishu.send(text) or sent
+        return sent
 
 
 def main():
