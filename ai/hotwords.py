@@ -9,36 +9,36 @@ from ai.client import AIClient
 from storage.database import Database
 from infra.logger import get_logger
 
-SYSTEM_PROMPT = """You are an on-chain trend analyst. Extract emerging narrative keywords from recent token data.
+SYSTEM_PROMPT = """你是一名链上趋势分析师。从近期代币数据中提取新兴叙事关键词。
 
-Rules:
-1. Only extract genuinely new trending keywords, ignore old memes (pepe, doge, shiba, wojak etc)
-2. Keywords should be specific words usable for keyword matching
-3. Each keyword should have a suggested category
-4. Only return high-confidence discoveries
+规则：
+1. 只提取真正新兴的热词，忽略老meme（pepe、doge、shiba、wojak等）
+2. 关键词应是具体可用于关键词匹配的词
+3. 每个关键词需附带建议分类
+4. 只返回高置信度的发现
 
-Only return JSON format, no additional text."""
+只返回JSON格式，不要附加其他文字。"""
 
-USER_PROMPT_TEMPLATE = """In the past {hours} hours, these new tokens appeared:
+USER_PROMPT_TEMPLATE = """过去{hours}小时，出现了以下新代币：
 
 {tokens_text}
 
-Extract emerging narrative keywords (max 5).
+提取新兴叙事关键词（最多5个）。
 
-Known old keywords (do not repeat):
+已知旧关键词（不要重复）：
 {known_keywords}
 
-Return JSON array:
+返回JSON数组：
 [
     {{
-        "keyword": "keyword",
+        "keyword": "关键词",
         "category": "musk_trump|binance_cz|celebrity_viral|general",
-        "reason": "why this is a new trend",
-        "confidence": 0.0 to 1.0
+        "reason": "为什么是新趋势",
+        "confidence": 0.0 到 1.0
     }}
 ]
 
-If no new trends found, return empty array []"""
+如果没有新趋势，返回空数组 []"""
 
 
 class HotWordDiscovery:

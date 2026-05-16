@@ -104,44 +104,44 @@ class BotCommandHandler:
         cmd = parts[0].lower().split("@")[0]
         if cmd == "/status":
             stats = self._db.get_daily_stats()
-            self._reply(chat_id, f"Status: {'PAUSED' if self._paused else 'RUNNING'}\nFilter: {self._chain_filter or 'all'}\n24h: scanned={stats['scanned']} pushed={stats['pushed']}")
+            self._reply(chat_id, f"状态: {'已暂停' if self._paused else '运行中'}\n过滤: {self._chain_filter or '全部'}\n24h: 扫描={stats['scanned']} 推送={stats['pushed']}")
         elif cmd == "/pause":
             self._paused = True
-            self._reply(chat_id, "Notifications paused.")
+            self._reply(chat_id, "通知已暂停。")
         elif cmd == "/resume":
             self._paused = False
-            self._reply(chat_id, "Notifications resumed.")
+            self._reply(chat_id, "通知已恢复。")
         elif cmd == "/filter" and len(parts) > 1:
             chain = parts[1].lower()
             if chain in ["eth","bsc","sol","base"]:
                 self._chain_filter = chain
-                self._reply(chat_id, f"Filter: {chain.upper()} only")
+                self._reply(chat_id, f"过滤: 仅 {chain.upper()}")
             else:
-                self._reply(chat_id, "Options: eth, bsc, sol, base")
+                self._reply(chat_id, "可选: eth, bsc, sol, base")
         elif cmd == "/unfilter":
             self._chain_filter = None
-            self._reply(chat_id, "Filter removed.")
+            self._reply(chat_id, "过滤已移除。")
         elif cmd == "/blacklist" and len(parts) > 1:
             self._db.add_to_blacklist(parts[1], reason="user_command")
-            self._reply(chat_id, f"Blacklisted: {parts[1][:16]}...")
+            self._reply(chat_id, f"已拉黑: {parts[1][:16]}...")
         elif cmd == "/addkw" and len(parts) >= 3:
             keyword = " ".join(parts[2:]).lower()
             self._db.add_hotword(keyword, parts[1], source="user")
-            self._reply(chat_id, f"Added: '{keyword}' -> {parts[1]}")
+            self._reply(chat_id, f"已添加: '{keyword}' -> {parts[1]}")
         elif cmd == "/fp" and len(parts) > 1:
             self._db.record_false_positive(parts[1], "", "", "", reason="user_command")
-            self._reply(chat_id, f"Marked FP: {parts[1][:16]}...")
+            self._reply(chat_id, f"已标记误报: {parts[1][:16]}...")
         elif cmd == "/winrate":
             wr = self._db.get_win_rate(60, 7)
-            self._reply(chat_id, f"7d win rate: {wr['win_rate']:.1f}% ({wr['wins']}/{wr['total']})")
+            self._reply(chat_id, f"7天胜率: {wr['win_rate']:.1f}% ({wr['wins']}/{wr['total']})")
         elif cmd == "/ai_status":
             if self._ai_client:
                 self._reply(chat_id, self._ai_client.get_status_text())
             else:
-                self._reply(chat_id, "AI client not available")
+                self._reply(chat_id, "AI客户端不可用")
         elif cmd == "/report" and self._report_callback:
             self._report_callback()
-            self._reply(chat_id, "Report triggered.")
+            self._reply(chat_id, "报告已触发。")
 
     def _handle_callback(self, data: str, callback_id: str):
         url = f"https://api.telegram.org/bot{self._token}/answerCallbackQuery"

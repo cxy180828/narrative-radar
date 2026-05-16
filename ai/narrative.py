@@ -7,31 +7,31 @@ from typing import Optional
 from ai.client import AIClient
 from infra.logger import get_logger
 
-SYSTEM_PROMPT = """You are an on-chain narrative analyst. Your task is to determine if a newly issued token belongs to a popular narrative or trend.
+SYSTEM_PROMPT = """你是一名链上叙事分析师。你的任务是判断新发行的代币是否属于热门叙事或趋势。
 
-Classification rules:
-1. musk_trump - Related to Musk, Tesla, SpaceX, Trump, MAGA etc.
-2. binance_cz - Related to Binance, CZ, Yi He, BNB Chain, PancakeSwap etc.
-3. celebrity_viral - Related to other celebrities, viral events, popular memes, social hot topics
-4. new_narrative - A completely new narrative/concept never seen before (explain what it is)
-5. noise - Meaningless random name, junk coin, copycat
+分类规则：
+1. musk_trump - 与Musk、Tesla、SpaceX、Trump、MAGA等相关
+2. binance_cz - 与Binance、CZ、何一、BNB Chain、PancakeSwap等相关
+3. celebrity_viral - 与其他名人、病毒事件、流行meme、社会热点相关
+4. new_narrative - 全新叙事/概念（说明是什么）
+5. noise - 无意义随机名、垃圾币、仿盘
 
-You must ONLY return JSON format, no additional text."""
+必须只返回JSON格式，不要附加其他文字。用中文填写narrative字段。"""
 
-USER_PROMPT_TEMPLATE = """Analyze the following token:
+USER_PROMPT_TEMPLATE = """分析以下代币：
 
-Token name: {name}
-Symbol: {symbol}
-Chain: {chain}
-Description: {description}
-Market cap: ${market_cap:,.0f}
+代币名称：{name}
+符号：{symbol}
+链：{chain}
+描述：{description}
+市值：${market_cap:,.0f}
 
-Return JSON:
+返回JSON：
 {{
     "category": "musk_trump|binance_cz|celebrity_viral|new_narrative|noise",
-    "narrative": "one sentence describing the narrative (empty string if noise)",
-    "confidence": 0.0 to 1.0,
-    "keywords": ["keyword1", "keyword2"]
+    "narrative": "一句话描述该叙事（如果是noise则为空字符串）",
+    "confidence": 0.0 到 1.0,
+    "keywords": ["关键词1", "关键词2"]
 }}"""
 
 
@@ -76,26 +76,26 @@ class NarrativeAnalyzer:
 class DescriptionGrader:
     """AI-powered token description quality assessment."""
 
-    SYSTEM_PROMPT = """You are a token quality assessor. Based on the token description and social media info, judge the project seriousness.
+    SYSTEM_PROMPT = """你是一名代币质量评估员。根据代币描述和社交媒体信息，判断项目的认真程度。
 
-Grades:
-A = Clear storyline/concept + active community + social media complete (at least 2 channels)
-B = Basic concept but incomplete community, or average concept with social channels
-C = Meaningless description/no socials/obviously machine-generated junk/copycat
+评级：
+A = 有清晰的故事线/概念 + 活跃社区 + 社交媒体完善（至少2个渠道）
+B = 有基本概念但社区不完善，或概念一般但有社交渠道
+C = 描述无意义/无社交/明显机器生成的垃圾/仿盘
 
-Only return JSON format."""
+只返回JSON格式。用中文填写reason字段。"""
 
-    USER_PROMPT = """Assess this token:
+    USER_PROMPT = """评估此代币：
 
-Description: {description}
-Has Twitter: {has_twitter}
-Has TG group: {has_telegram}
-Has Website: {has_website}
+描述：{description}
+有Twitter：{has_twitter}
+有TG群：{has_telegram}
+有网站：{has_website}
 
-Return JSON:
+返回JSON：
 {{
     "grade": "A|B|C",
-    "reason": "one sentence reason"
+    "reason": "一句话理由"
 }}"""
 
     def __init__(self, ai_client: AIClient, config: dict):
