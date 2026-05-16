@@ -9,46 +9,46 @@ from ai.client import AIClient
 from storage.database import Database
 from infra.logger import get_logger
 
-DAILY_SUMMARY_SYSTEM = """You are an on-chain market analyst. Generate a concise insightful market summary based on 24h data.
-Requirements: concise, opinionated. Return plain text only."""
+DAILY_SUMMARY_SYSTEM = """你是一名链上市场分析师。根据24小时数据生成简洁有洞察力的市场总结。
+要求：简洁、有观点、用中文回答。仅返回纯文本。"""
 
-DAILY_SUMMARY_PROMPT = """Generate today's on-chain narrative summary:
+DAILY_SUMMARY_PROMPT = """生成今日链上叙事总结：
 
-24h stats:
-- Tokens scanned: {scanned}
-- Signals pushed: {pushed}
-- Win rate (1h): {win_rate:.1f}%
-- Avg PnL: {avg_pnl:+.1f}%
+24小时数据：
+- 扫描代币数：{scanned}
+- 推送信号数：{pushed}
+- 胜率(1h)：{win_rate:.1f}%
+- 平均PnL：{avg_pnl:+.1f}%
 
-Top narratives:
+热门叙事：
 {top_narratives}
 
-Best signals:
+最佳信号：
 {best_signals}
 
-Worst signals:
+最差信号：
 {worst_signals}
 
-Output format:
-- Main narrative (1-2 sentences)
-- Market temperature (cold/warm/hot + 1 sentence)
-- Tomorrow focus (1-2 directions)
-- Parameter advice (should push threshold be adjusted)"""
+输出格式：
+- 主线叙事（1-2句话）
+- 市场温度（冷/温/热 + 1句话）
+- 明日关注（1-2个方向）
+- 参数建议（推送阈值是否需要调整）"""
 
-ENHANCED_MSG_SYSTEM = """You are an on-chain signal copywriter. Write a concise one-liner for a token signal.
-Requirements: under 50 words, explain why it's worth watching and biggest risk. Return plain text only."""
+ENHANCED_MSG_SYSTEM = """你是一名链上信号文案写手。为代币信号撰写简洁的一句话总结。
+要求：50字以内，说明为什么值得关注以及最大风险。用中文回答，仅返回纯文本。"""
 
-ENHANCED_MSG_PROMPT = """Token signal:
-Name: {name} ({symbol})
-Chain: {chain}
-MC: ${mc:,.0f}
-Liquidity: ${liq:,.0f}
-Narrative: {narrative}
-Description: {description}
-Streak: {rounds} rounds +{pct:.1f}%
-Score: {score}/100
+ENHANCED_MSG_PROMPT = """代币信号：
+名称：{name} ({symbol})
+链：{chain}
+市值：${mc:,.0f}
+流动性：${liq:,.0f}
+叙事：{narrative}
+描述：{description}
+连涨：{rounds}轮 +{pct:.1f}%
+评分：{score}/100
 
-Write one sentence investment logic + one sentence risk warning:"""
+用中文写一句投资逻辑 + 一句风险提示："""
 
 
 class AISummary:

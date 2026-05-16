@@ -9,39 +9,39 @@ from ai.client import AIClient
 from storage.database import Database
 from infra.logger import get_logger
 
-SYSTEM_PROMPT = """You are an on-chain signal quality analyst. Analyze false positive signals to find common patterns and suggest filter adjustments.
+SYSTEM_PROMPT = """你是一名链上信号质量分析师。分析误报信号以找出共同模式并建议过滤器调整。
 
-Requirements:
-1. Identify common characteristics of false positives
-2. Suggest specific filter rule adjustments (with threshold values)
-3. Suggest new exclusion keywords if applicable
-4. All suggestions must be actionable
+要求：
+1. 识别误报的共同特征
+2. 建议具体的过滤规则调整（附带阈值数值）
+3. 如有必要建议新的排除关键词
+4. 所有建议必须可操作
 
-Only return JSON format."""
+只返回JSON格式。用中文填写summary和common_patterns。"""
 
-USER_PROMPT_TEMPLATE = """The following {count} token signals were marked as false positives:
+USER_PROMPT_TEMPLATE = """以下{count}个代币信号被标记为误报：
 
 {false_positives_text}
 
-Current filter parameters:
-- Min market cap: ${min_mc:,.0f}
-- Min liquidity: ${min_liq:,.0f}
-- Min liquidity/MC ratio: {min_liq_ratio:.2f}
-- Max sell tax: {max_sell_tax:.0%}
-- Min age: {min_age_min} minutes
+当前过滤参数：
+- 最小市值：${min_mc:,.0f}
+- 最小流动性：${min_liq:,.0f}
+- 最小流动性/市值比：{min_liq_ratio:.2f}
+- 最大卖出税：{max_sell_tax:.0%}
+- 最小存活时间：{min_age_min}分钟
 
-Analyze and return JSON:
+分析并返回JSON：
 {{
-    "common_patterns": ["pattern1", "pattern2"],
+    "common_patterns": ["模式1", "模式2"],
     "suggested_adjustments": {{
-        "min_market_cap": suggested_value_or_null,
-        "min_liquidity": suggested_value_or_null,
-        "min_liq_mc_ratio": suggested_value_or_null,
-        "min_age_minutes": suggested_value_or_null
+        "min_market_cap": 建议值或null,
+        "min_liquidity": 建议值或null,
+        "min_liq_mc_ratio": 建议值或null,
+        "min_age_minutes": 建议值或null
     }},
-    "suggested_blacklist_keywords": ["word1", "word2"],
-    "confidence": 0.0_to_1.0,
-    "summary": "one sentence summary of main issue"
+    "suggested_blacklist_keywords": ["词1", "词2"],
+    "confidence": 0.0到1.0,
+    "summary": "一句话总结主要问题"
 }}"""
 
 
