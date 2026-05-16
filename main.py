@@ -193,6 +193,7 @@ class RadarApp:
             addr, chain = token["address"], token["chain"]
             safety = self.safety.check(chain, addr)
             if not safety.get("safe"):
+                self.logger.debug(f"Safety blocked: {token.get('name')} ({chain}) - {safety.get('reason', '?')}")
                 continue
             desc_info = self._get_description(chain, addr)
             description = (desc_info or {}).get("description", "")
@@ -208,6 +209,7 @@ class RadarApp:
             score = self.scorer.score(token=token, pct_gain=signal["pct_gain"], streak_rounds=signal["rounds"], signal_count=signal["signal_count"], vol_up=signal["vol_up"], category=category, desc_info=desc_info, desc_grade=desc_grade, momentum_decay=decay, ai_result=ai_result)
             push_level = self.scorer.get_push_level(score, self.config)
             if push_level == "low":
+                self.logger.debug(f"Score too low: {token.get('name')} score={score} +{signal['pct_gain']:.1f}%")
                 continue
             narrative_tag = self._build_narrative_tag(category, matched_kw, token, ai_result)
             ai_insight = None

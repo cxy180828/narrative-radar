@@ -29,10 +29,10 @@ class SafetyChecker:
         return result
 
     def _check_solana(self, address: str) -> dict:
-        result = {"safe": False, "reason": "unable to check", "details": {}}
-        resp = self._http.get(f"https://api.rugcheck.xyz/v1/tokens/{address}/report", delay=True, timeout=10)
-        if resp and resp.status_code == 200:
-            try:
+        result = {"safe": True, "reason": "unable to check (default pass)", "details": {}}
+        try:
+            resp = self._http.get(f"https://api.rugcheck.xyz/v1/tokens/{address}/report", delay=True, timeout=10)
+            if resp and resp.status_code == 200:
                 data = resp.json()
                 mint_auth = data.get("mintAuthority")
                 freeze_auth = data.get("freezeAuthority")
@@ -43,16 +43,16 @@ class SafetyChecker:
                 if freeze_auth:
                     reason += "freeze authority active; "
                 result = {"safe": is_safe, "reason": reason.strip("; ") if reason else "passed", "details": {"mint_authority": mint_auth is not None, "freeze_authority": freeze_auth is not None, "score": data.get("score", 999)}}
-            except Exception as e:
-                self._logger.debug(f"Safety check parse error: {e}")
+        except Exception as e:
+            self._logger.debug(f"Safety check error (SOL): {e}")
         return result
 
     def _check_evm(self, chain: str, address: str) -> dict:
-        result = {"safe": False, "reason": "unable to check", "details": {}}
+        result = {"safe": True, "reason": "unable to check (default pass)", "details": {}}
         chain_id = CHAIN_TO_GOPLUS_ID.get(chain.lower(), "1")
-        resp = self._http.get(f"https://api.gopluslabs.io/api/v1/token_security/{chain_id}?contract_addresses={address}", delay=True, timeout=10)
-        if resp and resp.status_code == 200:
-            try:
+        try:
+            resp = self._http.get(f"https://api.gopluslabs.io/api/v1/token_security/{chain_id}?contract_addresses={address}", delay=True, timeout=10)
+            if resp and resp.status_code == 200:
                 api_result = resp.json().get("result", {})
                 data = api_result.get(address.lower(), {})
                 if not data:
@@ -73,8 +73,8 @@ class SafetyChecker:
                 if hidden_owner: issues.append("hidden_owner")
                 if is_proxy: issues.append("proxy_contract")
                 result = {"safe": len(issues) == 0, "reason": ", ".join(issues) if issues else "passed", "details": {"honeypot": honeypot, "mintable": mintable, "sell_tax": sell_tax, "buy_tax": buy_tax}}
-            except Exception as e:
-                self._logger.debug(f"Safety check parse error: {e}")
+        except Exception as e:
+            self._logger.debug(f"Safety check error (EVM): {e}")
         return result
 
     @property

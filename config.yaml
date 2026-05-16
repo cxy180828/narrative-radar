@@ -4,8 +4,8 @@
 
 # --- Scanning ---
 scan:
-  interval: 30                # seconds between scans
-  active_hours_interval: 20   # shorter interval during active hours (UTC 12:00-04:00)
+  interval: 45                # seconds between scans (给GMGN数据更多刷新时间)
+  active_hours_interval: 30   # shorter interval during active hours (UTC 12:00-04:00)
   quiet_hours_interval: 60    # longer interval during quiet hours
   chains: ["eth", "bsc", "base", "sol"]
 
@@ -16,29 +16,30 @@ thresholds:
   min_liquidity: 500
   min_liq_mc_ratio: 0.03       # liquidity / market_cap minimum
   max_top10_holder_pct: 0.80   # top 10 holders max percentage
-  min_age_minutes: 10          # minimum token age before considering
+  min_age_minutes: 3           # minimum token age before considering (10→3, 新币前几分钟涨幅最大)
   max_sell_tax: 0.10           # max acceptable sell tax
   max_buy_tax: 0.10            # max acceptable buy tax
 
 # --- Momentum ---
 momentum:
-  consecutive_up: 3            # consecutive rising rounds to trigger
-  min_pct_gain: 5.0            # minimum % gain to trigger
-  push_cooldown: 300           # seconds between pushes for same token
+  consecutive_up: 2            # consecutive rising rounds to trigger (3→2, GMGN数据刷新慢)
+  min_pct_gain: 3.0            # minimum % gain to trigger (5→3, 降低门槛)
+  push_cooldown: 180           # seconds between pushes for same token (300→180)
   max_snapshots: 20            # max snapshots to keep per token
-  stale_timeout: 600           # seconds before removing stale tracker
+  stale_timeout: 900           # seconds before removing stale tracker (600→900, 保留更久)
   max_alerts_per_round: 8      # max alerts to push per scan round
+  min_snapshot_interval: 20    # minimum seconds between snapshots for same token
 
 # --- Scoring ---
 scoring:
-  gain_weight: 2.5             # multiplier for % gain
+  gain_weight: 3.0             # multiplier for % gain (2.5→3.0)
   gain_max: 35
-  streak_base: 10
+  streak_base: 12              # base score for meeting streak threshold (10→12)
   streak_per_round: 5
   streak_max: 25
   repeat_signal_weight: 5
   repeat_signal_max: 15
-  volume_up_bonus: 10
+  volume_up_bonus: 8           # (10→8, 稍微降低)
   chg_1h_divisor: 3
   chg_1h_max: 8
   liq_ratio_multiplier: 40
@@ -53,8 +54,8 @@ scoring:
 
 # --- Push levels ---
 push:
-  high_score_threshold: 75     # immediate push + AI enhanced message
-  medium_score_threshold: 50   # batch push every 5 minutes
+  high_score_threshold: 65     # immediate push + AI enhanced message (75→65)
+  medium_score_threshold: 30   # batch push (50→30, 大幅降低)
   low_score_threshold: 0       # log only, no push
 
 # --- AI ---
