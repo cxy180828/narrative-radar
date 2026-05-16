@@ -101,27 +101,33 @@ class AIProvider:
 
     @property
     def available(self) -> bool:
-        """Check if provider is available (not in cooldown and has quota)."""
+        """Check if provider is available. Pure read — does NOT mutate state."""
         if self.consecutive_failures >= 5:
-            # Exponential backoff: 30s, 60s, 120s, 240s, max 600s
             cooldown = min(600, 30 * (2 ** (self.consecutive_failures - 5)))
             if time.time() - self.last_failure_time < cooldown:
                 return False
-            # Reset after cooldown expires (give it another chance)
-            self.consecutive_failures = max(0, self.consecutive_failures - 2)
         elif self.consecutive_failures >= 3:
             cooldown = min(300, 30 * self.consecutive_failures)
             if time.time() - self.last_failure_time < cooldown:
                 return False
-            self.consecutive_failures = 0
         return self.rate_limiter.can_request()
+
+    def try_recover(self):
+        """Call before actually using a provider — resets backoff if cooldown expired."""
+        if self.consecutive_failures >= 5:
+            cooldown = min(600, 30 * (2 ** (self.consecutive_failures - 5)))
+            if time.time() - self.last_failure_time >= cooldown:
+                self.consecutive_failures = max(0, self.consecutive_failures - 2)
+        elif self.consecutive_failures >= 3:
+            cooldown = min(300, 30 * self.consecutive_failures)
+            if time.time() - self.last_failure_time >= cooldown:
+                self.consecutive_failures = 0
 
     def record_success(self, latency_ms: float = 0, tokens: int = 0):
         self.consecutive_failures = 0
         self.total_requests += 1
         self.total_tokens_used += tokens
         self.rate_limiter.record_request()
-        # Running average latency
         if latency_ms > 0:
             if self.avg_latency_ms == 0:
                 self.avg_latency_ms = latency_ms
@@ -256,6 +262,7 @@ class AIClient:
         for provider in providers:
             if not provider.available:
                 continue
+            provider.try_recover()
             result = self._call_provider(provider, messages, temperature, max_tokens, json_mode)
             if result is not None:
                 return result
@@ -320,7 +327,9 @@ class AIClient:
 
     def _call_provider(self, provider: AIProvider, messages: list,
                        temperature: float, max_tokens: int, json_mode: bool) -> Optional[str]:
-        """Make an API call to a specific provider."""
+        """Make an API call to a specific provider. No HTTP-level retry — fallback is handled by the client."""
+        import requests as _requests
+
         url = f"{provider.base_url}/chat/completions"
 
         headers = {
@@ -344,16 +353,13 @@ class AIClient:
 
         start_time = time.time()
         try:
-            resp = self._http.post(
+            # Use raw requests (no retry adapter) to avoid retry×rate-limiter mismatch
+            resp = _requests.post(
                 url, headers=headers, json=payload,
-                delay=False, timeout=provider.timeout,
+                timeout=provider.timeout,
             )
 
             latency_ms = (time.time() - start_time) * 1000
-
-            if resp is None:
-                provider.record_failure()
-                return None
 
             if resp.status_code == 200:
                 data = resp.json()
@@ -374,6 +380,7 @@ class AIClient:
 
             elif resp.status_code == 401 or resp.status_code == 403:
                 self._logger.error(f"AI '{provider.name}' auth failed ({resp.status_code}) - check API key")
+                provider.record_failure()
                 # Auth failures are permanent - set high failure count to skip for longer
                 provider.consecutive_failures = 10
                 provider.last_failure_time = time.time()

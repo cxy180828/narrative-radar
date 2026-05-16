@@ -24,6 +24,7 @@ class BotCommandHandler:
         self._running = False
         self._thread = None
         self._report_callback: Optional[Callable] = None
+        self._ai_client = None  # Set via set_ai_client()
 
     @property
     def enabled(self) -> bool:
@@ -39,6 +40,10 @@ class BotCommandHandler:
 
     def set_report_callback(self, callback: Callable):
         self._report_callback = callback
+
+    def set_ai_client(self, ai_client):
+        """Set AI client reference for /ai_status command."""
+        self._ai_client = ai_client
 
     def start(self):
         if not self._enabled:
@@ -121,6 +126,11 @@ class BotCommandHandler:
         elif cmd == "/winrate":
             wr = self._db.get_win_rate(60, 7)
             self._reply(chat_id, f"7d win rate: {wr['win_rate']:.1f}% ({wr['wins']}/{wr['total']})")
+        elif cmd == "/ai_status":
+            if self._ai_client:
+                self._reply(chat_id, self._ai_client.get_status_text())
+            else:
+                self._reply(chat_id, "AI client not available")
         elif cmd == "/report" and self._report_callback:
             self._report_callback()
             self._reply(chat_id, "Report triggered.")

@@ -99,6 +99,7 @@ class RadarApp:
         self.health.startup_check()
         if self.bot_commands.enabled:
             self.bot_commands.set_report_callback(self._trigger_report)
+            self.bot_commands.set_ai_client(self.ai_client)
             self.bot_commands.start()
         self.telegram.send(format_startup_message(self.config))
         self.logger.info(f"Scan interval: {self.config.get('scan', {}).get('interval', 30)}s")
