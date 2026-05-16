@@ -1,0 +1,125 @@
+# ========================================
+# Narrative Radar v2 Configuration
+# ========================================
+
+# --- Scanning ---
+scan:
+  interval: 30                # seconds between scans
+  active_hours_interval: 20   # shorter interval during active hours (UTC 12:00-04:00)
+  quiet_hours_interval: 60    # longer interval during quiet hours
+  chains: ["eth", "bsc", "base", "sol"]
+
+# --- Thresholds ---
+thresholds:
+  min_market_cap: 1000
+  max_market_cap: 10000000
+  min_liquidity: 500
+  min_liq_mc_ratio: 0.03       # liquidity / market_cap minimum
+  max_top10_holder_pct: 0.80   # top 10 holders max percentage
+  min_age_minutes: 10          # minimum token age before considering
+  max_sell_tax: 0.10           # max acceptable sell tax
+  max_buy_tax: 0.10            # max acceptable buy tax
+
+# --- Momentum ---
+momentum:
+  consecutive_up: 3            # consecutive rising rounds to trigger
+  min_pct_gain: 5.0            # minimum % gain to trigger
+  push_cooldown: 300           # seconds between pushes for same token
+  max_snapshots: 20            # max snapshots to keep per token
+  stale_timeout: 600           # seconds before removing stale tracker
+  max_alerts_per_round: 8      # max alerts to push per scan round
+
+# --- Scoring ---
+scoring:
+  gain_weight: 2.5             # multiplier for % gain
+  gain_max: 35
+  streak_base: 10
+  streak_per_round: 5
+  streak_max: 25
+  repeat_signal_weight: 5
+  repeat_signal_max: 15
+  volume_up_bonus: 10
+  chg_1h_divisor: 3
+  chg_1h_max: 8
+  liq_ratio_multiplier: 40
+  liq_ratio_max: 4
+  young_age_bonus: 3           # < 6h
+  medium_age_bonus: 1          # < 24h
+  category_musk_trump_bonus: 3
+  category_binance_cz_bonus: 3
+  category_celebrity_bonus: 2
+  social_link_bonus: 2
+  ai_narrative_bonus: 3        # AI detected meaningful narrative
+
+# --- Push levels ---
+push:
+  high_score_threshold: 75     # immediate push + AI enhanced message
+  medium_score_threshold: 50   # batch push every 5 minutes
+  low_score_threshold: 0       # log only, no push
+
+# --- AI ---
+ai:
+  enabled: true
+  # Provider priority: try in order, fallback on failure/rate-limit
+  providers:
+    - name: groq
+      api_key_env: "GROQ_API_KEY"
+      model: "llama-3.3-70b-versatile"
+      base_url: "https://api.groq.com/openai/v1"
+      max_rpm: 28               # free tier ~30 RPM, leave margin
+      max_rpd: 14000
+    - name: deepseek
+      api_key_env: "DEEPSEEK_API_KEY"
+      model: "deepseek-chat"
+      base_url: "https://api.deepseek.com/v1"
+      max_rpm: 60
+      max_rpd: 100000
+    - name: gemini
+      api_key_env: "GEMINI_API_KEY"
+      model: "gemini-2.0-flash"
+      base_url: "https://generativelanguage.googleapis.com/v1beta/openai"
+      max_rpm: 14
+      max_rpd: 900
+  # When to use AI
+  narrative_analysis: true      # AI for tokens that keywords can't classify
+  description_grading: true     # AI to grade token description quality
+  enhanced_copywriting: true    # AI for high-score signal messages
+  hotword_discovery: true       # AI every 6h to find new trends
+  daily_summary: true           # AI daily market summary
+  false_positive_learning: true # AI to analyze false positives
+
+# --- Telegram ---
+telegram:
+  token_env: "TELEGRAM_BOT_TOKEN"
+  chat_id_env: "TG_CHAT_ID"
+  bot_commands: true            # enable /status /pause /filter etc.
+  polling_interval: 2           # seconds between checking for commands
+
+# --- HTTP ---
+http:
+  timeout: 15
+  retries: 3
+  backoff_factor: 1.0
+  status_forcelist: [429, 500, 502, 503, 504]
+  ua_rotation: true
+  random_delay_min: 0.3
+  random_delay_max: 1.5
+
+# --- Logging ---
+logging:
+  level: "INFO"
+  max_bytes: 10485760          # 10MB
+  backup_count: 5
+  json_format: true
+
+# --- Database ---
+database:
+  wal_mode: true
+  busy_timeout: 5000
+  backup_interval: 86400       # daily backup
+
+# --- Backtest / Performance tracking ---
+backtest:
+  track_intervals: [5, 15, 60, 240, 1440]  # minutes after push to check price
+  win_threshold: 10.0          # % gain to count as "win"
+  report_interval: 86400       # daily report

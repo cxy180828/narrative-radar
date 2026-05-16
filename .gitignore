@@ -1,0 +1,32 @@
+# Environment
+.env
+*.env
+
+# Data
+data/
+*.db
+*.db-wal
+*.db-shm
+radar_backup_*.db
+
+# Logs
+*.log
+radar.log.*
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+.venv/
+venv/
+env/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
