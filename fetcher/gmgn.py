@@ -1,13 +1,23 @@
 """
 GMGN data fetcher - primary source for new tokens across ETH/BSC/BASE/SOL.
+
+Supports custom base URL via environment variable GMGN_BASE_URL for:
+- Cloudflare Worker proxy (recommended when IP is blocked)
+- Any other reverse proxy / mirror
+
+Default: https://gmgn.ai
 """
 
+import os
 import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from typing import List
 
 from infra.http_client import HttpClient
 from infra.logger import get_logger
+
+# Base URL - configurable via env var for CF Worker proxy
+GMGN_BASE = os.environ.get("GMGN_BASE_URL", "https://gmgn.ai").rstrip("/")
 
 GMGN_HEADERS = {
     "Referer": "https://gmgn.ai/",
@@ -63,9 +73,9 @@ class GmgnFetcher:
         tasks = []
 
         for chain in self._chains:
-            tasks.append((chain, f"https://gmgn.ai/defi/quotation/v1/rank/{chain}/swaps/1h?orderby=open_timestamp&direction=desc&limit=100"))
-            tasks.append((chain, f"https://gmgn.ai/defi/quotation/v1/rank/{chain}/swaps/1h?orderby=swaps&direction=desc&limit=50"))
-            tasks.append((chain, f"https://gmgn.ai/defi/quotation/v1/rank/{chain}/swaps/1h?orderby=volume&direction=desc&limit=50"))
+            tasks.append((chain, f"{GMGN_BASE}/defi/quotation/v1/rank/{chain}/swaps/1h?orderby=open_timestamp&direction=desc&limit=100"))
+            tasks.append((chain, f"{GMGN_BASE}/defi/quotation/v1/rank/{chain}/swaps/1h?orderby=swaps&direction=desc&limit=50"))
+            tasks.append((chain, f"{GMGN_BASE}/defi/quotation/v1/rank/{chain}/swaps/1h?orderby=volume&direction=desc&limit=50"))
 
         with ThreadPoolExecutor(max_workers=self._max_workers) as executor:
             future_map = {executor.submit(self._fetch_rank, url): chain for chain, url in tasks}
@@ -90,7 +100,7 @@ class GmgnFetcher:
 
     def fetch_flap_tokens(self) -> List[dict]:
         """Fetch FLAP launchpad tokens from BSC."""
-        data = self._fetch_rank("https://gmgn.ai/defi/quotation/v1/rank/bsc/swaps/24h?launchpad=flap&orderby=volume&direction=desc&limit=30")
+        data = self._fetch_rank(f"{GMGN_BASE}/defi/quotation/v1/rank/bsc/swaps/24h?launchpad=flap&orderby=volume&direction=desc&limit=30")
         tokens = []
         for t in data:
             token = build_token("bsc", t)
@@ -101,7 +111,7 @@ class GmgnFetcher:
 
     def fetch_token_price(self, chain: str, address: str) -> dict:
         """Fetch current price/mc for a specific token."""
-        url = f"https://gmgn.ai/defi/quotation/v1/tokens/top_buyers/{chain}/{address}"
+        url = f"{GMGN_BASE}/defi/quotation/v1/tokens/top_buyers/{chain}/{address}"
         resp = self._http.get(url, headers=GMGN_HEADERS, delay=True)
         if resp and resp.status_code == 200:
             try:

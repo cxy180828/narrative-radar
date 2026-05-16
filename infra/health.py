@@ -36,9 +36,10 @@ class HealthChecker:
         self._checks_passed["disk"] = free_gb >= 0.5
 
         # 2. GMGN reachability
+        gmgn_base = os.environ.get("GMGN_BASE_URL", "https://gmgn.ai").rstrip("/")
         gmgn_headers = {"Referer": "https://gmgn.ai/", "Origin": "https://gmgn.ai"}
         gmgn_ok = self._check_url(
-            "https://gmgn.ai/defi/quotation/v1/rank/eth/swaps/1h?limit=1",
+            f"{gmgn_base}/defi/quotation/v1/rank/eth/swaps/1h?limit=1",
             "GMGN",
             headers=gmgn_headers,
         )
