@@ -49,13 +49,33 @@ class PumpFunFetcher:
         return None
 
     def _normalize_coins(self, coins: list) -> List[dict]:
-        """Normalize pump.fun coins into standard token format."""
+        """Normalize pump.fun coins into standard token format.
+        
+        Price derivation: pump.fun API provides `virtual_sol_reserves` and
+        `virtual_token_reserves` for the bonding curve. Price per token =
+        (sol_reserves / token_reserves) * SOL_USD_price. As a shortcut we
+        use `usd_market_cap / total_supply` (or 1B default supply) which is
+        equivalent and doesn't need an external SOL price feed.
+        """
+        # pump.fun default total supply is 1 billion tokens
+        DEFAULT_SUPPLY = 1_000_000_000
         tokens = []
         for c in coins:
             addr = c.get("mint", "") or c.get("address", "")
             if not addr:
                 continue
             mc = c.get("usd_market_cap", 0) or 0
+            # Derive price from mc and supply
+            total_supply = c.get("total_supply", 0) or DEFAULT_SUPPLY
+            # total_supply from API is in raw units (no decimals for pump.fun = 6 decimals)
+            if total_supply > 1e15:
+                # Raw supply with 6 decimals
+                effective_supply = total_supply / 1e6
+            elif total_supply > 0:
+                effective_supply = total_supply
+            else:
+                effective_supply = DEFAULT_SUPPLY
+            price = mc / effective_supply if effective_supply > 0 else 0
             created = c.get("created_timestamp", 0)
             if isinstance(created, str):
                 try:
@@ -69,7 +89,7 @@ class PumpFunFetcher:
                 "address": addr, "chain": "sol",
                 "name": c.get("name", "?"), "symbol": c.get("symbol", "?"),
                 "mc": mc, "liq": mc * 0.1, "volume": 0, "holders": 0, "sm": 0,
-                "chg_1h": 0, "chg_24h": 0, "age_h": age_h, "price": 0,
+                "chg_1h": 0, "chg_24h": 0, "age_h": age_h, "price": price,
                 "buys_1h": 0, "sells_1h": 0,
                 "description": (c.get("description", "") or "").strip(),
                 "source": "pumpfun", "launchpad": "pumpfun",

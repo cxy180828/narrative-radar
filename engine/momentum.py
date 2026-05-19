@@ -47,7 +47,7 @@ class MomentumTracker:
             # liq=$200-$400 passed pre_filter's min_liq=200 but got killed by
             # the old hardcoded liq<500 here). If you need momentum-specific
             # filters, read them from self._config instead of hardcoding.
-            if mc <= 0 or price <= 0:
+            if mc <= 0:
                 skipped_filter += 1
                 continue
 
