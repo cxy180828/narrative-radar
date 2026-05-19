@@ -33,6 +33,7 @@ from notify.telegram import TelegramNotifier
 from notify.feishu import FeishuNotifier
 from notify.formatter import format_momentum_alert, format_daily_report, format_startup_message, build_alert_buttons
 from notify.bot_commands import BotCommandHandler
+from paper_trading import PaperPortfolio, format_paper_daily_report
 
 
 def load_config() -> dict:
@@ -89,6 +90,8 @@ class RadarApp:
         self.telegram = TelegramNotifier(self.http, self.config)
         self.feishu = FeishuNotifier(self.http, self.config)
         self.bot_commands = BotCommandHandler(self.http, self.db, self.config)
+        # Paper trading simulator (off by default, opt-in via config.yaml)
+        self.paper = PaperPortfolio(self.db, self.config, self.telegram, self.feishu)
         self.desc_cache = TTLCache(default_ttl=1800, max_size=3000)
         self.scan_count = 0
         self.total_pushed = 0
@@ -137,6 +140,12 @@ class RadarApp:
         tokens_filtered = tokens_found - len(tokens)
         signals = self.momentum.update(tokens)
         pushed = self._process_signals(signals)
+        # Paper trading: drive exit ladders & stop losses against the same
+        # token snapshot the scanner already pulled this round (zero extra IO).
+        try:
+            self.paper.update_prices(tokens)
+        except Exception as e:
+            self.logger.warning(f"paper update_prices error: {e}")
         duration_ms = int((time.time() - start_time) * 1000)
         self.db.record_scan_stats(tokens_found, tokens_filtered, len(signals), pushed, duration_ms)
         self.total_pushed += pushed
@@ -277,9 +286,16 @@ class RadarApp:
                 )
             if tg_sent or self.feishu.enabled:
                 pushed += 1
-                self.db.record_push(addr, chain, token.get("name", ""), token.get("symbol", ""), category, score, token.get("mc", 0), token.get("price", 0), narrative_tag, signal["signal_count"])
+                push_id = self.db.record_push(addr, chain, token.get("name", ""), token.get("symbol", ""), category, score, token.get("mc", 0), token.get("price", 0), narrative_tag, signal["signal_count"])
                 self.db.record_token(addr, chain, token.get("name", ""), token.get("symbol", ""), normalize_theme(token.get("name", ""), token.get("symbol", "")), category, token.get("mc", 0), token.get("liq", 0), pushed=True)
                 self.logger.info(f"PUSHED [{push_level}]: {token.get('name')} score={score} +{signal['pct_gain']:.1f}%")
+                # Paper trading: try to open a simulated position on the same token.
+                # No-op when disabled, when min_score not met, when already holding,
+                # at capacity, or when the daily circuit breaker is active.
+                try:
+                    self.paper.try_enter(token, score, push_id=push_id)
+                except Exception as e:
+                    self.logger.warning(f"paper try_enter error: {e}")
             if pushed >= max_alerts:
                 break
         return pushed
@@ -363,7 +379,11 @@ class RadarApp:
             stats = self.db.get_daily_stats()
             win_rate = self.db.get_win_rate(60, 1)
             ai_text = self.ai_summary.generate_daily_summary() if self.ai_summary.enabled else None
-            self._notify(format_daily_report(stats, win_rate, ai_text))
+            report = format_daily_report(stats, win_rate, ai_text)
+            paper_section = format_paper_daily_report(self.db, self.config)
+            if paper_section:
+                report = report + "\n" + paper_section
+            self._notify(report)
         except Exception as e:
             self.logger.error(f"Report error: {e}")
 
