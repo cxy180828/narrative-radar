@@ -40,7 +40,14 @@ class MomentumTracker:
             liq = token.get("liq", 0) or 0
             current_addrs.add(addr)
 
-            if mc < 1000 or liq < 500 or mc > 10_000_000:
+            # NOTE: Hard filters removed here. Pre-filtering is done in
+            # main.py::_pre_filter() using config.yaml thresholds. Duplicating
+            # it here with different values caused tokens passing pre_filter to
+            # be silently re-rejected by momentum (e.g. pump.fun tokens with
+            # liq=$200-$400 passed pre_filter's min_liq=200 but got killed by
+            # the old hardcoded liq<500 here). If you need momentum-specific
+            # filters, read them from self._config instead of hardcoding.
+            if mc <= 0 or price <= 0:
                 skipped_filter += 1
                 continue
 

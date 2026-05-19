@@ -64,15 +64,20 @@ class SafetyChecker:
                 owner_change = data.get("can_take_back_ownership", "0") == "1"
                 hidden_owner = data.get("hidden_owner", "0") == "1"
                 is_proxy = data.get("is_proxy", "0") == "1"
+                # Hard blockers: these make trading impossible or guarantee loss
                 issues = []
                 if honeypot: issues.append("honeypot")
                 if mintable: issues.append("mintable")
                 if sell_tax > self._thresholds.get("max_sell_tax", 0.10): issues.append(f"sell_tax={sell_tax:.0%}")
                 if buy_tax > self._thresholds.get("max_buy_tax", 0.10): issues.append(f"buy_tax={buy_tax:.0%}")
-                if owner_change: issues.append("owner_takeback")
-                if hidden_owner: issues.append("hidden_owner")
-                if is_proxy: issues.append("proxy_contract")
-                result = {"safe": len(issues) == 0, "reason": ", ".join(issues) if issues else "passed", "details": {"honeypot": honeypot, "mintable": mintable, "sell_tax": sell_tax, "buy_tax": buy_tax}}
+                # Soft warnings: risky but not deal-breakers for meme coins
+                # (proxy contracts, hidden owners, ownership takeback are common
+                # in BSC/ETH and rejecting them blocks ~70% of all tradeable tokens)
+                warnings = []
+                if owner_change: warnings.append("owner_takeback")
+                if hidden_owner: warnings.append("hidden_owner")
+                if is_proxy: warnings.append("proxy_contract")
+                result = {"safe": len(issues) == 0, "reason": ", ".join(issues + warnings) if (issues or warnings) else "passed", "details": {"honeypot": honeypot, "mintable": mintable, "sell_tax": sell_tax, "buy_tax": buy_tax, "warnings": warnings}}
         except Exception as e:
             self._logger.debug(f"Safety check error (EVM): {e}")
         return result
