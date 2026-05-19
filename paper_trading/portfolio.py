@@ -71,6 +71,7 @@ class PaperPortfolio:
         self.base_slippage: float = float(cfg.get("base_slippage", 0.03))
         self.fee: float = float(cfg.get("fee", 0.005))
         self.pre_be_sl: Optional[float] = cfg.get("pre_breakeven_stop_loss", -50)
+        self.dead_token_threshold: Optional[float] = cfg.get("dead_token_threshold", -95)
         self.exit_ladder: List[dict] = list(cfg.get("exit_ladder", [
             {"trigger_pnl": 100, "sell_pct": 50},
             {"trigger_pnl": 200, "sell_pct": 30},
@@ -258,6 +259,7 @@ class PaperPortfolio:
                 has_been_in_profit=(pos.exit_steps_done > 0),
                 exit_ladder=self.exit_ladder,
                 pre_breakeven_stop_loss=self.pre_be_sl,
+                dead_token_threshold=self.dead_token_threshold,
             )
             if action:
                 self._execute_sell(pos, t, price, action)
@@ -284,7 +286,7 @@ class PaperPortfolio:
         new_remaining = pos.remaining_qty - sell_qty
         new_realized = pos.realized_pnl_usd + net_usd
         new_steps = pos.exit_steps_done if action.trigger == "stop_loss" else pos.exit_steps_done + 1
-        is_fully_closed = new_remaining <= max(pos.initial_token_qty * 1e-6, 1e-12) or action.trigger == "stop_loss"
+        is_fully_closed = new_remaining <= max(pos.initial_token_qty * 1e-6, 1e-12) or action.trigger in ("stop_loss", "dead_token")
 
         now = int(time.time())
         c = self._db._conn.cursor()
@@ -417,6 +419,9 @@ class PaperPortfolio:
         if action.trigger == "stop_loss":
             icon = "\U0001f6d1"  # 🛑
             title = "止损"
+        elif action.trigger == "dead_token":
+            icon = "\U0001f480"  # 💀
+            title = "归零清仓"
         elif action.trigger == "ladder_100":
             icon = "\U0001f4b0"  # 💰
             title = "翻倍出本"

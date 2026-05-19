@@ -68,11 +68,12 @@ paper_trading:
   enabled: true                # 总开关。先用 false 观察日志再切到 true。
   initial_capital: 10000       # 仅用于报告里显示的"账户净值"基准
   position_size: 50            # 每笔买入的虚拟金额 (USD)
-  max_concurrent_positions: 10 # 最多同时持仓数量；满了不再开新仓
+  max_concurrent_positions: 20 # 最多同时持仓数量；满了不再开新仓
   min_score_to_buy: 50         # 评分阈值。推送阈值是 30 (medium) 但买入需 50+
   base_slippage: 0.03          # 基础滑点。实际取 max(base, position_size/liq)
   fee: 0.005                   # 单边手续费 (0.5%)
   pre_breakeven_stop_loss: -50 # "翻倍出本"前的止损线，单位 %。设 null 关闭。
+  dead_token_threshold: -95    # 出本后如果跌到入场价 -95%，视为归零自动清仓释放名额
   exit_ladder:                 # 金字塔减仓阶梯，按 trigger_pnl 升序触发
     - trigger_pnl: 100         # +100% -> 卖 50% (回收本金)
       sell_pct: 50

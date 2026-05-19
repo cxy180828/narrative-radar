@@ -60,6 +60,7 @@ def evaluate_exits(
     has_been_in_profit: bool,
     exit_ladder: List[dict],
     pre_breakeven_stop_loss: Optional[float],
+    dead_token_threshold: Optional[float] = -95.0,
 ) -> Optional[ExitAction]:
     """Decide if a position should be (partially) closed this tick.
 
@@ -88,6 +89,16 @@ def evaluate_exits(
                 sell_pct_of_remaining=100.0,
                 trigger="stop_loss",
                 reason=f"-{abs(current_pnl_pct):.1f}% 触发出本前止损",
+            )
+
+    # 1b. Dead token detection: post-breakeven, if token lost 95%+ from entry
+    # it's effectively dead. Close to free up a position slot.
+    if has_been_in_profit and dead_token_threshold is not None:
+        if current_pnl_pct <= dead_token_threshold:
+            return ExitAction(
+                sell_pct_of_remaining=100.0,
+                trigger="dead_token",
+                reason=f"{current_pnl_pct:.0f}% 归零清仓（释放仓位）",
             )
 
     # 2. Ladder: trigger on HWM, execute in order, one per tick
