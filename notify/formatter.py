@@ -59,13 +59,23 @@ def format_startup_message(config: dict) -> str:
     chains = ", ".join(config.get("scan", {}).get("chains", []))
     interval = config.get("scan", {}).get("interval", 30)
     ai_enabled = config.get("ai", {}).get("enabled", False)
-    return f"\U0001f680 *Narrative Radar v2 已启动*\n\n链: {chains}\n间隔: {interval}s\nAI: {'已启用' if ai_enabled else '已禁用'}\n逻辑: 动量优先，AI增强\n推送: 评分>=50批量，>=75即时"
+    push_cfg = config.get("push", {})
+    medium_th = push_cfg.get("medium_score_threshold", 50)
+    high_th = push_cfg.get("high_score_threshold", 75)
+    return (
+        f"\U0001f680 *链上雷达 v2 已启动*\n\n"
+        f"链: {chains}\n"
+        f"间隔: {interval}s\n"
+        f"AI: {'已启用' if ai_enabled else '已禁用'}\n"
+        f"逻辑: 动量优先，AI增强\n"
+        f"推送: 评分>={medium_th}批量，>={high_th}即时"
+    )
 
 
 def build_alert_buttons(address: str, chain: str) -> list:
     dex_chain = {"sol": "solana", "eth": "ethereum", "bsc": "bsc", "base": "base"}.get(chain.lower(), chain)
     return [
-        {"text": "\U0001f4c8 Chart", "url": f"https://dexscreener.com/{dex_chain}/{address}"},
-        {"text": "\u274c FP", "callback_data": f"fp:{address}"},
-        {"text": "\U0001f6ab Block", "callback_data": f"bl:{address}"},
+        {"text": "\U0001f4c8 K线", "url": f"https://dexscreener.com/{dex_chain}/{address}"},
+        {"text": "\u274c 误报", "callback_data": f"fp:{address}"},
+        {"text": "\U0001f6ab 拉黑", "callback_data": f"bl:{address}"},
     ]

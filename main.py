@@ -252,16 +252,26 @@ class RadarApp:
             msg = format_momentum_alert(token=token, pct_gain=signal["pct_gain"], rounds=signal["rounds"], vol_up=signal["vol_up"], score=score, narrative_tag=narrative_tag, desc_info=desc_info, signal_count=signal["signal_count"], ai_insight=ai_insight, push_level=push_level)
             buttons = build_alert_buttons(addr, chain)
             tg_sent = self.telegram.send_with_keyboard(msg, buttons)
-            # Also send to Feishu (card format)
+            # 飞书卡片同样使用中文，与 TG 风格保持一致
             if self.feishu.enabled:
-                fs_buttons = [{"text": "Chart", "url": f"https://dexscreener.com/{chain}/{addr}"}]
+                dex_chain = {"sol": "solana", "eth": "ethereum", "bsc": "bsc", "base": "base"}.get(chain, chain)
+                fs_buttons = [
+                    {"text": "K线", "url": f"https://dexscreener.com/{dex_chain}/{addr}"},
+                    {"text": "GMGN", "url": f"https://gmgn.ai/{chain}/token/{addr}"},
+                ]
+                vol_tag = " (放量)" if signal.get("vol_up") else ""
+                fs_text = (
+                    f"**评分:** {score}/100 | **链:** {chain.upper()}\n"
+                    f"**连涨:** {signal['rounds']}轮 +{signal['pct_gain']:.1f}%{vol_tag}\n"
+                    f"**市值:** ${token.get('mc', 0):,.0f} | **流动性:** ${token.get('liq', 0):,.0f}\n"
+                    f"**叙事:** {narrative_tag}\n"
+                )
+                if ai_insight:
+                    fs_text += f"**AI洞察:** {ai_insight}\n"
+                fs_text += f"`{addr}`"
                 self.feishu.send_card(
-                    title=f"Radar Signal: {token.get('name', '?')} ({token.get('symbol', '?')})",
-                    text=f"**Score:** {score}/100 | **Chain:** {chain.upper()}\n"
-                         f"**Streak:** {signal['rounds']} rounds +{signal['pct_gain']:.1f}%\n"
-                         f"**MC:** ${token.get('mc', 0):,.0f} | **Liq:** ${token.get('liq', 0):,.0f}\n"
-                         f"**Narrative:** {narrative_tag}\n"
-                         f"`{addr}`",
+                    title=f"雷达信号: {token.get('name', '?')} ({token.get('symbol', '?')})",
+                    text=fs_text,
                     buttons=fs_buttons,
                     color="green" if score >= 75 else "blue",
                 )
@@ -293,21 +303,22 @@ class RadarApp:
         return result
 
     def _build_narrative_tag(self, category, matched_kw, token, ai_result):
+        # 全部使用中文标签，与 Telegram / 飞书消息体保持一致
         if category == "musk_trump":
-            return f"Musk/Trump ({', '.join((matched_kw or [])[:3])})"
+            return f"马斯克/川普 ({', '.join((matched_kw or [])[:3])})"
         elif category == "binance_cz":
-            return f"Binance/CZ ({', '.join((matched_kw or [])[:3])})"
+            return f"币安/CZ ({', '.join((matched_kw or [])[:3])})"
         elif category == "celebrity_viral":
-            return f"Celebrity ({', '.join((matched_kw or [])[:3])})"
+            return f"名人/热点 ({', '.join((matched_kw or [])[:3])})"
         elif category == "new_narrative" and ai_result:
-            return f"AI: {ai_result.get('narrative', 'new trend')}"
+            return f"AI叙事: {ai_result.get('narrative', '新趋势')}"
         theme = normalize_theme(token.get("name", ""), token.get("symbol", ""))
         words = [w for w in theme.split() if w not in COMMON_NOISE_WORDS and len(w) > 2]
         if len(words) >= 2:
-            return f"Theme: {theme}"
+            return f"主题: {theme}"
         if token.get("launchpad"):
-            return f"Launchpad: {token['launchpad']}"
-        return "Momentum"
+            return f"平台: {token['launchpad']}"
+        return "动量"
 
     def _periodic_tasks(self):
         now = time.time()
@@ -322,7 +333,7 @@ class RadarApp:
                 known = [hw["keyword"] for hw in self.db.get_active_hotwords()]
                 discovered = self.hotword_discovery.discover(recent, known)
                 if discovered:
-                    self._notify(f"New trends: {', '.join(d['keyword'] for d in discovered)}")
+                    self._notify(f"发现新热词: {', '.join(d['keyword'] for d in discovered)}")
             except Exception as e:
                 self.logger.warning(f"Hotword discovery error: {e}")
         if self.ai_summary.should_run():
@@ -331,7 +342,7 @@ class RadarApp:
             try:
                 analysis = self.fp_learning.analyze()
                 if analysis:
-                    self._notify(f"FP Analysis: {analysis.get('summary', 'done')}")
+                    self._notify(f"误报分析: {analysis.get('summary', '完成')}")
             except Exception as e:
                 self.logger.warning(f"FP learning error: {e}")
         if self.calibrator.should_calibrate():
@@ -360,7 +371,7 @@ class RadarApp:
         self.logger.info("Shutting down...")
         if self.bot_commands.enabled:
             self.bot_commands.stop()
-        self._notify("Narrative Radar v2 shutting down.")
+        self._notify("链上雷达 v2 已停止运行。")
         self.db.close()
         self.logger.info("Shutdown complete.")
 
@@ -370,7 +381,7 @@ class RadarApp:
         self.logger.warning(f"[{source}] error #{self._error_counts[source]}: {error}")
         # Alert if any source has 10+ consecutive errors
         if self._error_counts[source] >= 10 and self._error_counts[source] % 10 == 0:
-            self._notify(f"WARNING: {source} has {self._error_counts[source]} errors")
+            self._notify(f"警告: {source} 累计 {self._error_counts[source]} 次错误")
 
     def _notify(self, text: str) -> bool:
         """Send message to all configured notification channels (TG + Feishu)."""

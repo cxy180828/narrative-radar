@@ -10,7 +10,7 @@ from storage.database import Database
 from infra.logger import get_logger
 
 DAILY_SUMMARY_SYSTEM = """你是一名链上市场分析师。根据24小时数据生成简洁有洞察力的市场总结。
-要求：简洁、有观点、用中文回答。仅返回纯文本。"""
+要求：简洁、有观点、必须使用简体中文回答。仅返回纯文本，不要任何英文标签或前缀。"""
 
 DAILY_SUMMARY_PROMPT = """生成今日链上叙事总结：
 
@@ -36,7 +36,7 @@ DAILY_SUMMARY_PROMPT = """生成今日链上叙事总结：
 - 参数建议（推送阈值是否需要调整）"""
 
 ENHANCED_MSG_SYSTEM = """你是一名链上信号文案写手。为代币信号撰写简洁的一句话总结。
-要求：50字以内，说明为什么值得关注以及最大风险。用中文回答，仅返回纯文本。"""
+要求：50字以内，说明为什么值得关注以及最大风险。必须使用简体中文，仅返回纯文本，不要任何英文。"""
 
 ENHANCED_MSG_PROMPT = """代币信号：
 名称：{name} ({symbol})
