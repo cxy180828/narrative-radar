@@ -26,13 +26,18 @@ GMGN_HEADERS = {
 
 
 def build_token(chain: str, t: dict) -> dict:
-    """Normalize a GMGN token entry into standard format."""
+    """Normalize a GMGN token entry into standard format.
+    
+    Defensive: GMGN occasionally returns `null` for numeric fields (e.g. open_timestamp,
+    market_cap). Coerce every numeric field to a safe number so downstream comparisons
+    don't blow up with TypeError.
+    """
     addr = t.get("address", "")
     if not addr:
         return None
-    mc = t.get("market_cap", 0) or t.get("fdv", 0) or 0
-    liq = t.get("liquidity", 0) or 0
-    age_ts = t.get("open_timestamp", 0)
+    mc = (t.get("market_cap") or t.get("fdv") or 0) or 0
+    liq = t.get("liquidity") or 0
+    age_ts = t.get("open_timestamp") or 0
     age_h = (time.time() - age_ts) / 3600 if age_ts > 0 else 999
 
     return {
@@ -42,16 +47,16 @@ def build_token(chain: str, t: dict) -> dict:
         "symbol": t.get("symbol", "?"),
         "mc": mc,
         "liq": liq,
-        "volume": t.get("volume", 0) or 0,
-        "holders": t.get("holder_count", 0) or 0,
-        "sm": t.get("smart_degen_count", 0) or 0,
-        "chg_1h": t.get("price_change_percent1h", 0) or 0,
-        "chg_24h": t.get("price_change_percent", 0) or 0,
+        "volume": t.get("volume") or 0,
+        "holders": t.get("holder_count") or 0,
+        "sm": t.get("smart_degen_count") or 0,
+        "chg_1h": t.get("price_change_percent1h") or 0,
+        "chg_24h": t.get("price_change_percent") or 0,
         "age_h": age_h,
-        "price": t.get("price", 0) or 0,
-        "buys_1h": t.get("buys", 0) or 0,
-        "sells_1h": t.get("sells", 0) or 0,
-        "top10_holder_rate": t.get("top_10_holder_rate", 0) or 0,
+        "price": t.get("price") or 0,
+        "buys_1h": t.get("buys") or 0,
+        "sells_1h": t.get("sells") or 0,
+        "top10_holder_rate": t.get("top_10_holder_rate") or 0,
         "dev_burn": t.get("dev_token_burn_status", None),
         "source": "gmgn",
     }
