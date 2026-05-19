@@ -43,7 +43,11 @@ def format_momentum_alert(token: dict, pct_gain: float, rounds: int, vol_up: boo
 
 def format_daily_report(stats: dict, win_rate: dict, ai_summary: Optional[str] = None) -> str:
     msg = "\U0001f4ca *每日报告*\n\n"
-    msg += f"扫描: {stats.get('scanned', 0)}\n推送: {stats.get('pushed', 0)}\n轮次: {stats.get('rounds', 0)}\n\n"
+    msg += f"扫描: {stats.get('scanned', 0)}\n"
+    msg += f"通过过滤: {stats.get('passed', 0)}\n"
+    msg += f"动量信号: {stats.get('signals', 0)}\n"
+    msg += f"推送: {stats.get('pushed', 0)}\n"
+    msg += f"轮次: {stats.get('rounds', 0)}\n\n"
     if win_rate.get("total", 0) > 0:
         msg += f"胜率(1h): {win_rate['win_rate']:.1f}%\n平均PnL: {win_rate['avg_pnl']:+.1f}%\n最佳: {win_rate['max_pnl']:+.1f}%\n最差: {win_rate['min_pnl']:+.1f}%\n"
     if ai_summary:

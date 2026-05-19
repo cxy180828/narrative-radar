@@ -285,15 +285,39 @@ class Database:
         return {"total": 0, "wins": 0, "win_rate": 0, "avg_pnl": 0, "max_pnl": 0, "min_pnl": 0}
 
     def get_daily_stats(self) -> dict:
+        """Stats for the last 24h.
+        
+        IMPORTANT: `scanned` reports total tokens *fetched* per round (sum of
+        scan_stats.tokens_found), not how many distinct tokens are in tokens_seen.
+        The previous version queried tokens_seen, but that table is only written
+        when a push succeeds — so a "0 push" period would always report
+        "scanned=0" and hide the real fetch volume from operators.
+        """
         cutoff = int(time.time()) - 86400
         c = self._conn.cursor()
-        c.execute("SELECT COUNT(*) FROM tokens_seen WHERE first_seen_at >= ?", (cutoff,))
-        scanned = c.fetchone()[0]
+        c.execute(
+            "SELECT COALESCE(SUM(tokens_found), 0), COALESCE(SUM(tokens_filtered), 0), "
+            "COALESCE(SUM(momentum_signals), 0), COUNT(*) "
+            "FROM scan_stats WHERE scan_time >= ?",
+            (cutoff,),
+        )
+        row = c.fetchone()
+        scanned = row[0] or 0
+        filtered = row[1] or 0
+        signals = row[2] or 0
+        rounds = row[3] or 0
         c.execute("SELECT COUNT(*) FROM push_history WHERE pushed_at >= ?", (cutoff,))
         pushed = c.fetchone()[0]
-        c.execute("SELECT COUNT(*) FROM scan_stats WHERE scan_time >= ?", (cutoff,))
-        rounds = c.fetchone()[0]
-        return {"scanned": scanned, "pushed": pushed, "rounds": rounds}
+        # Approximate "candidates that survived pre-filter" — useful for diagnosing
+        # over-aggressive thresholds.
+        passed = max(0, scanned - filtered)
+        return {
+            "scanned": scanned,
+            "passed": passed,
+            "signals": signals,
+            "pushed": pushed,
+            "rounds": rounds,
+        }
 
     def record_scan_stats(self, tokens_found: int, tokens_filtered: int,
                           momentum_signals: int, pushed: int, duration_ms: int):

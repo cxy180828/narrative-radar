@@ -11,12 +11,15 @@ scan:
 
 # --- Thresholds ---
 thresholds:
-  min_market_cap: 1000
-  max_market_cap: 10000000
-  min_liquidity: 500
+  # NOTE 2026-05-18: aligned with pump.fun bonding curve where mc/liq ratio ≈ 10:1.
+  # Old values (min_mc=1000, min_liq=500) silently rejected ~99.99% of candidates
+  # because pump.fun early tokens with mc=$2k typically only have liq=$200.
+  min_market_cap: 2000
+  max_market_cap: 100000000    # 1亿 (raised from 10M to capture mid-cap movers like KOGE/AIO)
+  min_liquidity: 200           # matches pump.fun's mc/liq ratio
   min_liq_mc_ratio: 0.03       # liquidity / market_cap minimum
   max_top10_holder_pct: 0.80   # top 10 holders max percentage
-  min_age_minutes: 3           # minimum token age before considering (10→3, 新币前几分钟涨幅最大)
+  min_age_minutes: 1           # 3→1: pump.fun strongest momentum is in first few minutes
   max_sell_tax: 0.10           # max acceptable sell tax
   max_buy_tax: 0.10            # max acceptable buy tax
 

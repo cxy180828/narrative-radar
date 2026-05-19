@@ -99,7 +99,11 @@ class HttpClient:
         headers = {
             "Accept": "application/json",
             "Accept-Language": random.choice(["en-US,en;q=0.9", "en-GB,en;q=0.8", "zh-CN,zh;q=0.9,en;q=0.8"]),
-            "Accept-Encoding": "gzip, deflate, br",
+            # Note: Brotli (br) intentionally excluded. Cloudflare edge re-compresses responses
+            # with brotli when the client advertises it, but the `requests` library does not
+            # support brotli out of the box (would need the `brotli` package). Keeping it to
+            # gzip/deflate makes responses through CF Worker proxies parse reliably.
+            "Accept-Encoding": "gzip, deflate",
         }
         if self._ua_rotation:
             headers["User-Agent"] = random.choice(USER_AGENTS)

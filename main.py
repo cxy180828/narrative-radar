@@ -180,10 +180,44 @@ class RadarApp:
         return all_tokens
 
     def _pre_filter(self, tokens: list) -> list:
+        """Apply hard filters and (every 20 rounds) log a breakdown of why
+        candidates got rejected. The breakdown is the fastest way to spot
+        misconfigured thresholds without re-running an external diag script.
+        """
         th = self.config.get("thresholds", {})
-        min_mc, max_mc, min_liq = th.get("min_market_cap", 1000), th.get("max_market_cap", 10000000), th.get("min_liquidity", 500)
+        min_mc = th.get("min_market_cap", 1000)
+        max_mc = th.get("max_market_cap", 10000000)
+        min_liq = th.get("min_liquidity", 500)
         min_age = th.get("min_age_minutes", 10) / 60
-        return [t for t in tokens if not self.db.is_blacklisted(t["address"]) and min_mc <= (t.get("mc", 0) or 0) <= max_mc and (t.get("liq", 0) or 0) >= min_liq and (t.get("age_h", 999)) >= min_age]
+        kept = []
+        rejected = {"blacklisted": 0, "mc_too_low": 0, "mc_too_high": 0,
+                    "liq_too_low": 0, "age_too_young": 0}
+        for t in tokens:
+            if self.db.is_blacklisted(t["address"]):
+                rejected["blacklisted"] += 1
+                continue
+            mc = t.get("mc", 0) or 0
+            liq = t.get("liq", 0) or 0
+            age_h = t.get("age_h", 999) or 999
+            if mc < min_mc:
+                rejected["mc_too_low"] += 1
+                continue
+            if mc > max_mc:
+                rejected["mc_too_high"] += 1
+                continue
+            if liq < min_liq:
+                rejected["liq_too_low"] += 1
+                continue
+            if age_h < min_age:
+                rejected["age_too_young"] += 1
+                continue
+            kept.append(t)
+        if self.scan_count % 20 == 0:
+            self.logger.info(
+                f"[Filter] in={len(tokens)} kept={len(kept)} "
+                + " ".join(f"{k}={v}" for k, v in rejected.items() if v)
+            )
+        return kept
 
     def _process_signals(self, signals: list) -> int:
         max_alerts = self.config.get("momentum", {}).get("max_alerts_per_round", 8)

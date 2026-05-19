@@ -1,3 +1,7 @@
 requests>=2.28.0,<3.0.0
 PyYAML>=6.0,<7.0
 urllib3>=1.26.0,<3.0.0
+# Brotli decoding for `requests`. Cloudflare edges (incl. Workers) often
+# re-compress responses with brotli when the client advertises support;
+# without this package those responses come back as garbled bytes.
+brotli>=1.0.9
